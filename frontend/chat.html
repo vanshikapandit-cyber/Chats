@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Office Chat</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:Arial;
+        }
+
+        body{
+
+            background:#111b21;
+            height:100vh;
+
+        }
+
+        .container{
+
+            display:flex;
+            height:100vh;
+
+        }
+
+        .sidebar{
+
+            width:30%;
+            background:#202c33;
+            color:white;
+            border-right:1px solid #2f3b43;
+
+        }
+
+        .sidebar-header{
+
+            padding:20px;
+            background:#202c33;
+            font-size:20px;
+            font-weight:bold;
+
+        }
+
+        .users{
+
+            overflow-y:auto;
+            height:calc(100vh - 70px);
+
+        }
+
+        .user{
+
+            padding:15px;
+            border-bottom:1px solid #2f3b43;
+            cursor:pointer;
+
+        }
+
+        .user:hover{
+
+            background:#2a3942;
+
+        }
+
+        .chat-area{
+
+            width:70%;
+            display:flex;
+            flex-direction:column;
+            background:#0b141a;
+
+        }
+
+        .chat-header{
+
+            padding:20px;
+            background:#202c33;
+            color:white;
+            font-size:18px;
+
+        }
+
+        .messages{
+
+            flex:1;
+            padding:20px;
+            overflow-y:auto;
+            display:flex;
+            flex-direction:column;
+
+        }
+
+        .message{
+
+            max-width:60%;
+            padding:10px;
+            margin-bottom:10px;
+            border-radius:10px;
+            color:white;
+
+        }
+
+        .sent{
+
+            background:#005c4b;
+            align-self:flex-end;
+
+        }
+
+        .received{
+
+            background:#202c33;
+            align-self:flex-start;
+
+        }
+
+        .input-area{
+
+            display:flex;
+            padding:15px;
+            background:#202c33;
+
+        }
+
+        #message{
+
+            flex:1;
+            padding:12px;
+            border:none;
+            outline:none;
+            border-radius:5px;
+
+        }
+
+        button{
+
+            margin-left:10px;
+            padding:12px 20px;
+            border:none;
+            background:#00a884;
+            color:white;
+            border-radius:5px;
+            cursor:pointer;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="sidebar">
+
+        <div class="sidebar-header">
+            Users
+        </div>
+
+        <div
+            class="users"
+            id="users"
+        ></div>
+
+    </div>
+
+    <div class="chat-area">
+
+        <div
+            class="chat-header"
+            id="chatHeader"
+        >
+            Select User
+        </div>
+
+        <div
+            class="messages"
+            id="messages"
+        ></div>
+
+        <div class="input-area">
+
+            <input
+                id="message"
+                placeholder="Type message"
+            >
+
+            <button onclick="sendMessage()">
+                Send
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+<script>
+
+const user =
+    JSON.parse(localStorage.getItem("user"));
+
+if(!user){
+
+    window.location = "login.html";
+
+}
+
+const USER_ID = user.id;
+
+let selectedUser = null;
+
+const socket =
+    io("http://192.168.5.172:3002");
+
+socket.on("connect",()=>{
+
+    socket.emit("join",USER_ID);
+
+});
+
+async function loadUsers(){
+
+    const response = await fetch(
+        "http://192.168.5.172:3002/users"
+    );
+
+    const users = await response.json();
+
+    const usersDiv =
+        document.getElementById("users");
+
+    usersDiv.innerHTML = "";
+
+    users.forEach((u)=>{
+
+        if(u.id != USER_ID){
+
+            const div =
+                document.createElement("div");
+
+            div.classList.add("user");
+
+            div.innerHTML =
+                u.name + "<br>" + u.email;
+
+            div.onclick = ()=>{
+
+                selectedUser = u;
+
+                document
+                .getElementById("chatHeader")
+                .innerHTML = u.name;
+
+            };
+
+            usersDiv.appendChild(div);
+
+        }
+
+    });
+
+}
+
+function sendMessage(){
+
+    if(!selectedUser){
+
+        alert("Select User");
+
+        return;
+
+    }
+
+    const message =
+        document.getElementById("message").value;
+
+    const data = {
+
+        sender_id:USER_ID,
+        receiver_id:selectedUser.id,
+        message:message
+
+    };
+
+    socket.emit("send_message",data);
+
+    appendMessage(data,true);
+
+    document.getElementById("message").value = "";
+
+}
+
+socket.on("receive_message",(data)=>{
+
+    appendMessage(data,false);
+
+});
+
+function appendMessage(data,isSender){
+
+    const div =
+        document.createElement("div");
+
+    div.classList.add("message");
+
+    if(isSender){
+
+        div.classList.add("sent");
+
+    }else{
+
+        div.classList.add("received");
+
+    }
+
+    div.innerHTML =
+        data.message;
+
+    document
+        .getElementById("messages")
+        .appendChild(div);
+
+}
+
+loadUsers();
+
+</script>
+
+</body>
+
+</html>
